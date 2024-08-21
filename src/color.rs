@@ -1,7 +1,8 @@
 use clap::builder::TypedValueParser;
 use clap::builder::ValueParserFactory;
 use clap::error::ErrorKind;
-
+use std::ffi::OsStr;
+use std::ffi::OsString;
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -21,7 +22,7 @@ impl TypedValueParser for ColorParser {
         &self,
         cmd: &clap::Command,
         arg: Option<&clap::Arg>,
-        value: &std::ffi::OsStr,
+        value: &OsStr,
     ) -> Result<Self::Value, clap::Error> {
         TypedValueParser::parse(self, cmd, arg, value.to_owned())
     }
@@ -30,7 +31,7 @@ impl TypedValueParser for ColorParser {
         &self,
         _cmd: &clap::Command,
         _arg: Option<&clap::Arg>,
-        value: std::ffi::OsString,
+        value: OsString,
     ) -> Result<Self::Value, clap::Error> {
         let value = value
             .into_string()

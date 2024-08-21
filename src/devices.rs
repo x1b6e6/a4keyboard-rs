@@ -1,22 +1,25 @@
-use std::mem::MaybeUninit;
-
 use crate::color::Color;
 use crate::utils::AsBytes as _;
+use libbpf_rs::skel::OpenSkel as _;
+use libbpf_rs::skel::SkelBuilder as _;
+use libbpf_rs::Error;
 use libbpf_rs::MapCore as _;
 use libbpf_rs::MapFlags;
+use libbpf_rs::OpenObject;
+use libbpf_rs::ProgramInput;
 use once_cell::sync::Lazy;
 use std::fs;
 use std::io;
 use std::mem::size_of_val;
-
+use std::mem::MaybeUninit;
+use std::ptr::addr_of_mut;
+use std::ptr::copy_nonoverlapping;
+use std::str;
+use write_bpf::WriteSkelBuilder;
 pub mod bloody;
 
 #[path = "bpf/write.bpf.rs"]
 mod write_bpf;
-use libbpf_rs::skel::OpenSkel as _;
-use libbpf_rs::skel::SkelBuilder as _;
-
-use libbpf_rs::Error;
 
 struct DeviceFunctions {
     probe: fn(&DeviceInfo) -> bool,
@@ -75,11 +78,7 @@ impl Writer {
 
         // SAFETY: sizes is checked above
         unsafe {
-            core::ptr::copy_nonoverlapping(
-                data.as_ptr(),
-                block.as_bytes_mut().as_mut_ptr(),
-                data.len(),
-            )
+            copy_nonoverlapping(data.as_ptr(), block.as_bytes_mut().as_mut_ptr(), data.len())
         };
 
         self.kernel_writer.program.maps.array.update(
@@ -92,7 +91,7 @@ impl Writer {
             hid_id: self.hid as u32,
             data_size: data.len() as u32,
         };
-        let mut input = libbpf_rs::ProgramInput::default();
+        let mut input = ProgramInput::default();
         input.context_in = Some(hdr.as_bytes_mut());
 
         self.kernel_writer.program.progs.write.test_run(input)?;
@@ -119,12 +118,12 @@ pub struct Devices<'a> {
 
 impl KernelWriter<'_> {
     fn new() -> Self {
-        static mut OBJECT: MaybeUninit<libbpf_rs::OpenObject> = MaybeUninit::uninit();
+        static mut OBJECT: MaybeUninit<OpenObject> = MaybeUninit::uninit();
 
-        let program = write_bpf::WriteSkelBuilder::default()
+        let program = WriteSkelBuilder::default()
             .open(
                 // SAFETY: should be called once
-                unsafe { &mut *core::ptr::addr_of_mut!(OBJECT) },
+                unsafe { &mut *addr_of_mut!(OBJECT) },
             )
             .unwrap();
 
@@ -141,7 +140,7 @@ static mut DEVICES: Lazy<Devices<'static>> = Lazy::new(|| Devices {
 
 /// # SAFETY: data must be valid hex utf8 string
 unsafe fn from_hex(data: &[u8]) -> u16 {
-    u16::from_str_radix(core::str::from_utf8_unchecked(data), 16).unwrap_unchecked()
+    u16::from_str_radix(str::from_utf8_unchecked(data), 16).unwrap_unchecked()
 }
 
 impl Devices<'_> {

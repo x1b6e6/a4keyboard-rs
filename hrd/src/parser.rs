@@ -3,6 +3,10 @@ use crate::Descriptor;
 use crate::Error;
 use crate::Report;
 use crate::ReportType;
+use std::mem::size_of;
+use std::mem::swap;
+use std::mem::zeroed;
+use std::ptr::copy_nonoverlapping;
 
 #[derive(Clone, Default)]
 pub(crate) struct ParserGlobalState {
@@ -35,14 +39,14 @@ trait FromBytes: Copy {
     fn from_bytes(bytes: &[u8]) -> Option<Self> {
         let len = bytes.len();
 
-        if len > core::mem::size_of::<Self>() || len == 0 || (len & (len - 1)) != 0 {
+        if len > size_of::<Self>() || len == 0 || (len & (len - 1)) != 0 {
             return None;
         }
 
         // SAFETY: its used only with primitive types like u32 and i32
         unsafe {
-            let mut value = core::mem::zeroed();
-            core::ptr::copy_nonoverlapping(bytes.as_ptr(), &mut value as *mut Self as *mut u8, len);
+            let mut value = zeroed();
+            copy_nonoverlapping(bytes.as_ptr(), &mut value as *mut Self as *mut u8, len);
             Some(value)
         }
     }
@@ -154,7 +158,7 @@ impl Parser {
                     collection.r#type = Some(u32::from_bytes(&data).ok_or(Error::BadCollection)?);
                     collection.state = self.collection.state.clone();
 
-                    core::mem::swap(&mut collection, &mut self.collection);
+                    swap(&mut collection, &mut self.collection);
 
                     self.stack_collection.push(collection)
                 }
@@ -164,7 +168,7 @@ impl Parser {
                         .pop()
                         .ok_or(Error::UnexpectedEndCollection)?;
 
-                    core::mem::swap(&mut collection, &mut self.collection);
+                    swap(&mut collection, &mut self.collection);
 
                     self.collection.collections.push(collection)
                 }
