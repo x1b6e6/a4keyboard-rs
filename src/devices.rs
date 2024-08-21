@@ -138,9 +138,8 @@ static mut DEVICES: Lazy<Devices<'static>> = Lazy::new(|| Devices {
     kernel_writer: Lazy::new(KernelWriter::new),
 });
 
-/// # SAFETY: data must be valid hex utf8 string
-unsafe fn from_hex(data: &[u8]) -> u16 {
-    u16::from_str_radix(str::from_utf8_unchecked(data), 16).unwrap_unchecked()
+fn from_hex(data: &[u8]) -> Option<u16> {
+    u16::from_str_radix(str::from_utf8(data).ok()?, 16).ok()
 }
 
 impl Devices<'_> {
@@ -177,9 +176,9 @@ impl Devices<'_> {
             let hid = &name[15..19];
 
             // SAFETY: vid, pid and hid is valid hex strings
-            let vid = unsafe { from_hex(vid) };
-            let pid = unsafe { from_hex(pid) };
-            let hid = unsafe { from_hex(hid) };
+            let vid = unsafe { from_hex(vid).unwrap_unchecked() };
+            let pid = unsafe { from_hex(pid).unwrap_unchecked() };
+            let hid = unsafe { from_hex(hid).unwrap_unchecked() };
 
             let report_descriptor = match fs::read(device_dir.path().join("report_descriptor")) {
                 Ok(report_descriptor) => report_descriptor,
