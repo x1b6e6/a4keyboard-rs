@@ -4,6 +4,7 @@ use clap::error::ErrorKind;
 use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::fmt;
+use std::str;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Color {
@@ -14,6 +15,10 @@ pub struct Color {
 
 #[derive(Clone)]
 pub struct ColorParser;
+
+fn from_hex(data: &[u8; 2]) -> Option<u8> {
+    u8::from_str_radix(str::from_utf8(data).ok()?, 16).ok()
+}
 
 impl TypedValueParser for ColorParser {
     type Value = Color;
@@ -46,22 +51,6 @@ impl TypedValueParser for ColorParser {
         let len @ (3 | 6) = value.len() else {
             return Err(incorrect_color());
         };
-
-        fn from_hex(val: &[u8; 2]) -> Option<u8> {
-            fn _inner_from_hex(v: u8) -> Option<u8> {
-                Some(match v {
-                    x @ b'0'..=b'9' => x - b'0',
-                    x @ b'a'..=b'f' => x - b'a' + 0x0a,
-                    x @ b'A'..=b'F' => x - b'A' + 0x0a,
-                    _ => return None,
-                })
-            }
-
-            let h = _inner_from_hex(val[0])?;
-            let l = _inner_from_hex(val[1])?;
-
-            Some((h << 4) | l)
-        }
 
         let (r, g, b) = match len {
             3 => {
